@@ -1,5 +1,6 @@
 use eframe::egui;
 
+// MAIN -------------------------------------------------------------------------------------------------------------------------
 fn main() {
     // Taken from eframe documentation: https://docs.rs/eframe/latest/eframe/
     let native_options = eframe::NativeOptions::default();
@@ -13,7 +14,8 @@ fn main() {
     println!("Hello, world!");
 }
 
-// Taken from eframe documentation: https://docs.rs/eframe/latest/eframe/
+// UI ---------------------------------------------------------------------------------------------------------------------------
+// Adapted from eframe documentation: https://docs.rs/eframe/latest/eframe/
 #[derive(Default)]
 struct GuitarToolsApp {}
 
@@ -30,11 +32,40 @@ impl GuitarToolsApp {
 impl eframe::App for GuitarToolsApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Hello World!");
+            draw_panel(ctx);
         });
     }
 }
 
+/*
+   Purpose:
+   Notes:
+*/
+fn draw_panel(ctx: &egui::Context) {
+    let mut app_mode = AppModeOptions::Home;
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.heading("Hello there!");
+        ui.end_row();
+        ui.horizontal(|ui| {
+            ui.radio_value(&mut app_mode, AppModeOptions::Home, "Home");
+            ui.radio_value(&mut app_mode, AppModeOptions::TuneByEar, "Tune by ear");
+            ui.radio_value(
+                &mut app_mode,
+                AppModeOptions::TuneByRecording,
+                "Tune by recording",
+            );
+        });
+    });
+}
+
+#[derive(PartialEq)]
+enum AppModeOptions {
+    Home,
+    TuneByEar,
+    TuneByRecording,
+}
+
+// SOUND ------------------------------------------------------------------------------------------------------------------------
 /*
    Purpose:
    Notes:
