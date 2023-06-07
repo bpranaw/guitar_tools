@@ -17,12 +17,14 @@ fn main() -> Result<(), eframe::Error> {
 // Adapted from eframe documentation: https://docs.rs/eframe/latest/eframe/
 struct GuitarToolsApp {
     app_mode: AppModeOptions,
+    volume: i32,
 }
 
 impl Default for GuitarToolsApp {
     fn default() -> Self {
         Self {
             app_mode: AppModeOptions::Home,
+            volume: 50,
         }
     }
 }
@@ -33,7 +35,7 @@ impl eframe::App for GuitarToolsApp {
 
         match self.app_mode {
             AppModeOptions::Home => draw_home(ctx),
-            AppModeOptions::TuneByEar => draw_tune_by_ear(ctx),
+            AppModeOptions::TuneByEar => draw_tune_by_ear(ctx, &mut self.volume),
             AppModeOptions::TuneByRecording => draw_tune_by_recording(ctx),
         }
     }
@@ -61,25 +63,26 @@ fn draw_menu(app_mode: &mut AppModeOptions, ctx: &egui::Context) {
 
 fn draw_home(ctx: &egui::Context) {}
 
-fn draw_tune_by_ear(ctx: &egui::Context) {
+fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     egui::CentralPanel::default().show(ctx, |ui| {
+        ui.add(egui::Slider::new(volume, 0..=100));
         if ui.button("E").clicked() {
-            play_note(Note::E2);
+            play_note(Note::E2, *volume);
         }
         if ui.button("A").clicked() {
-            play_note(Note::A2);
+            play_note(Note::A2, *volume);
         }
         if ui.button("D").clicked() {
-            play_note(Note::D3);
+            play_note(Note::D3, *volume);
         }
         if ui.button("G").clicked() {
-            play_note(Note::G3);
+            play_note(Note::G3, *volume);
         }
         if ui.button("B").clicked() {
-            play_note(Note::B3);
+            play_note(Note::B3, *volume);
         }
         if ui.button("e").clicked() {
-            play_note(Note::E4);
+            play_note(Note::E4, *volume);
         }
     });
 }
@@ -113,7 +116,7 @@ enum Note {
    Purpose: Plays a note of the given frequency for one second
    Notes: Based on documentation: https://docs.rs/rodio/latest/rodio/
 */
-fn play_note(frequency: Note) {
+fn play_note(frequency: Note, volume: i32) {
     let sample_rate: u32 = 48000;
     let duration: u32 = 1;
     //Casts enum to f32
@@ -124,9 +127,11 @@ fn play_note(frequency: Note) {
     //Builds Note audio
     for t in (0..(sample_rate * duration)).map(|x| x as f32 / sample_rate as f32) {
         let sample = (t * frequency * 2.0 * PI).sin();
-        let wave = sample * f32::MAX;
+        let wave = sample * f32::MAX * (volume / 100) as f32;
         source.push(wave);
     }
+
+    println!("{}", source[100]);
 
     //For playing audio
     // Based on https://docs.rs/rodio/latest/rodio/ and https://docs.rs/rodio/latest/src/rodio/buffer.rs.html
