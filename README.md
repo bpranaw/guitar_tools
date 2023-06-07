@@ -18,4 +18,4 @@ sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev lib
 
 # Progress
 
-You can see a summary of the progress of this project in the "Progress.md" file.
+The project is going alright. I am further behind on progress than I had hoped, but my schedule is clear to really work on the last stretch of this project. I am learning a lot about sound physics/music theory. The end goal of the project is relatively simple, even if its process is complex, so a lot of the "work" for the project is just learning those theoreticals. Since this is also a learning experience in Rust, I will be satisfied even if the project just reaches its basic goals.
