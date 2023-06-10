@@ -1,5 +1,5 @@
 use eframe::egui;
-use rodio::{buffer::SamplesBuffer, OutputStream, Source};
+use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 use std::f32::consts::PI;
 
 // MAIN -------------------------------------------------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ impl Default for GuitarToolsApp {
     fn default() -> Self {
         Self {
             app_mode: AppModeOptions::Home,
-            volume: 50,
+            volume: 1,
         }
     }
 }
@@ -65,25 +65,29 @@ fn draw_home(ctx: &egui::Context) {}
 
 fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     egui::CentralPanel::default().show(ctx, |ui| {
+        ui.label("Make sure to turn your SYSTEM volume down! This can be quite loud");
         ui.add(egui::Slider::new(volume, 0..=100));
-        if ui.button("E").clicked() {
-            play_note(Note::E2, *volume);
-        }
-        if ui.button("A").clicked() {
-            play_note(Note::A2, *volume);
-        }
-        if ui.button("D").clicked() {
-            play_note(Note::D3, *volume);
-        }
-        if ui.button("G").clicked() {
-            play_note(Note::G3, *volume);
-        }
-        if ui.button("B").clicked() {
-            play_note(Note::B3, *volume);
-        }
-        if ui.button("e").clicked() {
-            play_note(Note::E4, *volume);
-        }
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("E").clicked() {
+                play_note(Note::E2, *volume);
+            }
+            if ui.button("A").clicked() {
+                play_note(Note::A2, *volume);
+            }
+            if ui.button("D").clicked() {
+                play_note(Note::D3, *volume);
+            }
+            if ui.button("G").clicked() {
+                play_note(Note::G3, *volume);
+            }
+            if ui.button("B").clicked() {
+                play_note(Note::B3, *volume);
+            }
+            if ui.button("e").clicked() {
+                play_note(Note::E4, *volume);
+            }
+        });
     });
 }
 
@@ -127,7 +131,9 @@ fn play_note(frequency: Note, volume: i32) {
     //Builds Note audio
     for t in (0..(sample_rate * duration)).map(|x| x as f32 / sample_rate as f32) {
         let sample = (t * frequency * 2.0 * PI).sin();
-        let wave = sample * f32::MAX * (volume / 100) as f32;
+
+        let wave = sample * volume as f32;
+        println!("{}", sample);
         source.push(wave);
     }
 
@@ -141,12 +147,13 @@ fn play_note(frequency: Note, volume: i32) {
     //Creating the "Source" that rodio needs to play sounds
     let source: SamplesBuffer<f32> = SamplesBuffer::new(1, sample_rate, source);
 
-    // Play the sound directly on the device
-    stream_handle
-        .play_raw(source.convert_samples())
-        .expect("Something went wrong with playing the sound.");
+    let sink = Sink::try_new(&stream_handle).unwrap();
 
-    // The sound plays in a separate audio thread,
-    // so we need to keep the main thread alive while it's playing
-    std::thread::sleep(std::time::Duration::from_secs(duration.into()));
+    // Play the sound directly on the device
+    println!("{}", sink.volume());
+    sink.append(source);
+
+    // The sound plays in a separate thread. This call will block the current thread until the sink
+    // has finished playing all its queued sounds.
+    sink.sleep_until_end();
 }
