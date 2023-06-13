@@ -47,7 +47,7 @@ impl eframe::App for GuitarToolsApp {
 */
 fn draw_menu(app_mode: &mut AppModeOptions, ctx: &egui::Context) {
     egui::TopBottomPanel::top("Heading Panel").show(ctx, |ui| {
-        ui.heading("Hello there!");
+        ui.heading("Navigation:");
         ui.end_row();
         ui.horizontal(|ui| {
             ui.radio_value(app_mode, AppModeOptions::Home, "Home");
@@ -61,8 +61,33 @@ fn draw_menu(app_mode: &mut AppModeOptions, ctx: &egui::Context) {
     });
 }
 
-fn draw_home(ctx: &egui::Context) {}
+/*
+   Purpose: Draws the portion related to the "homepage" of the project
+   Notes: This is just a little bit of information about how to use the application/what it's for
+*/
+fn draw_home(ctx: &egui::Context) {
+    egui::TopBottomPanel::top("Middle Panel").show(ctx, |ui| {
+        ui.heading("How to use the app:");
+        ui.add_space(10.0);
+        ui.label("You can use the navigation bar at the top to select which mode you want the app to be in.");
+        ui.label("If you would like to close out of the app, you can just the exit button that is native to your system's apps.");
+        ui.add_space(10.0);
+    });
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.heading("Whats this app for?");
+        ui.add_space(10.0);
+        ui.label("This application is meant to help you with guitar related tasks. Currently, it only has the capability to help with your guitar tuning.");
+        ui.label("You may choose to \"Tune by ear\" or \"Tune by recording\". ");
+        ui.label("\"Tune by ear\" lets you choose your tuning and play specific pitches so you can tune your guitar strings accordingly by the sound.");
+        ui.label("\"Tune by recording\" lets you select your tuning and record your guitar strings making noise. The application will then tell you how close your string is to the proper pitch.");
+        ui.add_space(10.0);
+    });
+}
 
+/*
+   Purpose:
+   Notes:
+*/
 fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.label("Make sure to turn your SYSTEM volume down! This can be quite loud");
@@ -91,6 +116,10 @@ fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     });
 }
 
+/*
+   Purpose:
+   Notes:
+*/
 fn draw_tune_by_recording(ctx: &egui::Context) {}
 
 #[derive(PartialEq)]
