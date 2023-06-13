@@ -4,3 +4,4 @@ LOG 3: Got a basic note player going. The biggest problem I encountered with thi
 Log 4: I'm attempting to add a volume control to the enote player, but for some reason it only plays at 100.
 Log 5: The volume control took a while but I managed to get it to a "reasonable" level. It still plays quite loud however.
 Log 6: I updated the homepage.
+Log 7: I added more tuning. There are now five in total.
