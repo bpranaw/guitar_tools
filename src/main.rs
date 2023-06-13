@@ -294,11 +294,8 @@ fn play_note(frequency: Note, volume: i32) {
         let sample = (t * frequency * 2.0 * PI).sin();
 
         let wave = sample * volume as f32;
-        println!("{}", sample);
         source.push(wave);
     }
-
-    println!("{}", source[100]);
 
     //For playing audio
     // Based on https://docs.rs/rodio/latest/rodio/ and https://docs.rs/rodio/latest/src/rodio/buffer.rs.html
@@ -311,7 +308,6 @@ fn play_note(frequency: Note, volume: i32) {
     let sink = Sink::try_new(&stream_handle).unwrap();
 
     // Play the sound directly on the device
-    println!("{}", sink.volume());
     sink.append(source);
 
     // The sound plays in a separate thread. This call will block the current thread until the sink
