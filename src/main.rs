@@ -102,7 +102,7 @@ fn draw_home(ctx: &egui::Context) {
 
 /*
    Purpose: This function displays the "Tune by ear" page of the application
-   Notes: The tunings listen here are some of the common tunings found on https://muted.io/guitar-tuning-chart/ and https://theacousticguitarist.com/alternate-tunings-for-acoustic-guitar/
+   Notes: The tunings listed here are some of the common tunings found on https://muted.io/guitar-tuning-chart/ and https://theacousticguitarist.com/alternate-tunings-for-acoustic-guitar/
 */
 fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     egui::CentralPanel::default().show(ctx, |ui| {
@@ -246,8 +246,8 @@ fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
 }
 
 /*
-   Purpose:
-   Notes:
+   Purpose: This draws the ui for the "Tune by recording" page
+   Notes: It's recommended that any usere that is using this has their strings at least somewhat near the pitch, i.e. after tuning by ear.
 */
 fn draw_tune_by_recording(ctx: &egui::Context, tuning_result: &mut String) {
     egui::CentralPanel::default().show(ctx, |ui| {
@@ -531,6 +531,7 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
         eprintln!("an error occurred on stream: {}", err);
     };
 
+    //Does the writing based on the device data type
     let stream = match supported_config.sample_format() {
         cpal::SampleFormat::F32 => device.build_input_stream(
             &supported_config.into(),
@@ -548,8 +549,9 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
             err_fn,
         )?,
     };
-    stream.play()?;
 
+    //Starts the recording, and keeps it going for one second
+    stream.play()?;
     std::thread::sleep(std::time::Duration::from_secs(1));
     drop(stream);
     let clip = clip.lock().unwrap().take().unwrap();
@@ -597,7 +599,7 @@ fn generate_fourier_transform(audio: AudioData) -> Vec<f64> {
    Purpose: Finds the greatest absolute value in the given vector and outputs the index for it
    Notes: In theory, the outputted index should be the most prominent frequency in the spectrogram
           During testing, it seems that the second and third harmonics keep getting picked up. For example, a perfectly tuned E2 string (82 Hz) would pick up 164 Hz, 246 Hz etc.
-          My current solution to this is to limit where the greatest data is gathered, but that assumes that the string is already somewhere in the ballpark of the pitch...
+          My current solution to this is to limit where the data is gathered, but that assumes that the string is already somewhere in the ballpark of the pitch...
           That's why there's a target note in here.
 */
 fn find_greatest(data: Vec<f64>, target_note: Note) -> usize {
