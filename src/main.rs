@@ -456,14 +456,14 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
 
 /*
    Purpose: This takes in a vector representing a signal waveform, performs a fourier transform and outputs the spectrogram
-   Notes: This section is based on the documents in https://docs.rs/realfft/3.3.0/realfft/
+   Notes: This section is based on the documents in https://docs.rs/realfft/3.3.0/realfft/ and took inspiration from the source code at https://docs.rs/audioviz/latest/src/audioviz/fft.rs.html#55-62
 */
 fn generate_fourier_transform() {
     // JUST FOR TESTING ------------
     let sample_rate: u32 = 48000;
     let duration: u32 = 1;
     //Casts enum to f32
-    let frequency = Note::E2 as i16 as f32;
+    let frequency = Note::D4 as i16 as f32;
 
     let mut source: Vec<f64> = vec![];
 
@@ -486,26 +486,21 @@ fn generate_fourier_transform() {
     // forward transform the signal
     r2c.process(&mut source, &mut spectrum).unwrap();
 
-    // create an inverse FFT
-    let c2r = real_planner.plan_fft_inverse(source.len());
+    let mut data: Vec<f64> = Vec::new();
 
-    // create a vector for storing the output
-    let mut outdata = c2r.make_output_vec();
-
-    // inverse transform the spectrum back to a real-valued signal
-    c2r.process(&mut spectrum, &mut outdata).unwrap();
-
-    let mut data: String = String::new();
-    for t in 0..outdata.len() {
-        outdata[t] = outdata[t] * (1.0 / outdata.len() as f64);
-        data += t.to_string().as_str();
-        data += " : ";
-        data += outdata[t].to_string().as_str();
-        data += "\n";
-        if t == 82 {
-            println!("{} : {}", t, outdata[t]);
-        }
+    //Normalizes complex to real
+    for i in &spectrum {
+        data.push(i.norm());
     }
 
-    fs::write("test.txt", data);
+    let mut data_string: String = String::new();
+    for t in 0..data.len() {
+        data_string += t.to_string().as_str();
+        data_string += " : ";
+        data_string += data[t].to_string().as_str();
+        data_string += "\n";
+    }
+
+    println!("Frequency: {}", frequency);
+    fs::write("test.txt", data_string);
 }
