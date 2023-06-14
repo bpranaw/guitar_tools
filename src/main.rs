@@ -1,6 +1,11 @@
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use eframe::egui;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
-use std::f32::consts::PI;
+use std::{
+    error::Error,
+    f32::consts::PI,
+    sync::{Arc, Mutex},
+};
 
 const SPACING: f32 = 10.0;
 
@@ -93,6 +98,7 @@ fn draw_home(ctx: &egui::Context) {
 fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.heading("Make sure to turn your SYSTEM volume down! This can be quite loud");
+        ui.label("Press one of the notes to have it be played out loud.");
         ui.label(
             "Notes are listed as: [Note] or [Note]_S or [Note]_F for sharp and flat respectively.",
         );
@@ -234,7 +240,49 @@ fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
    Purpose:
    Notes:
 */
-fn draw_tune_by_recording(ctx: &egui::Context) {}
+fn draw_tune_by_recording(ctx: &egui::Context) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.heading("Instructions:");
+        ui.label(
+            "Play a string on your guitar and press the button which you would like to tune it to.",
+        );
+        ui.label(
+            "Your audio is recorded, and processed. After, the program will tell you how close you are to the proper pitch.",
+        );
+        ui.add_space(SPACING);
+        //Standard Tuning -------------------------------------------------------------------------
+        ui.label("Standard Tuning:");
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("E").clicked() { 
+                let audio = obtain_audio().unwrap();
+                // To test the audo
+                let sample_rate: u32 = audio.sample_rate;
+                let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+                let source: SamplesBuffer<f32> = SamplesBuffer::new(1, sample_rate, audio.samples);
+                let sink = Sink::try_new(&stream_handle).unwrap();
+                sink.append(source);
+                sink.sleep_until_end();
+            }
+            if ui.button("A").clicked() {
+
+            }
+            if ui.button("D").clicked() {
+
+            }
+            if ui.button("G").clicked() {
+
+            }
+            if ui.button("B").clicked() {
+
+            }
+            if ui.button("e").clicked() {
+
+            }
+        });
+        ui.add_space(SPACING);
+    });
+}
 
 #[derive(PartialEq)]
 enum AppModeOptions {
@@ -313,4 +361,91 @@ fn play_note(frequency: Note, volume: i32) {
     // The sound plays in a separate thread. This call will block the current thread until the sink
     // has finished playing all its queued sounds.
     sink.sleep_until_end();
+}
+
+// Audio Recording --------------------------------------------------------------------------------------------------------------
+// This portion is based on the "cpal:recording" section of https://www.youtube.com/watch?v=ZweInbMBsa4
+struct AudioData {
+    samples: Vec<f32>,
+    sample_rate: u32,
+}
+
+/*
+   Purpose: This is intended to record a vibrating guitar string and return the recorded audio so it can be processed.
+   Notes: This is based on https://docs.rs/cpal/0.15.2/cpal/, https://github.com/RustAudio/cpal/blob/master/examples/record_wav.rs#L129 and https://www.youtube.com/watch?v=ZweInbMBsa4
+*/
+fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
+    // We need to get the default audio devices/configs
+    // Currently it just panics if that doesn't work. That chnage will come later but my goal is getting the prototype to work right now.
+
+    let host = cpal::default_host();
+    let device = host
+        .default_input_device()
+        .expect("no input device available");
+
+    let mut supported_configs_range = device
+        .supported_input_configs()
+        .expect("error while querying configs");
+
+    let supported_config = supported_configs_range
+        .next()
+        .expect("no supported config?!")
+        .with_max_sample_rate();
+
+    // Making the structure that will store the recording
+    let clip = AudioData {
+        samples: Vec::new(),
+        sample_rate: supported_config.sample_rate().0,
+    };
+
+    let clip = Arc::new(Mutex::new(Some(clip)));
+    let clip_2 = clip.clone();
+
+    type ClipHandler = Arc<Mutex<Option<AudioData>>>;
+    let channels = supported_config.channels();
+    /*
+       Notes: These were taken from https://github.com/RustAudio/cpal/blob/master/examples/record_wav.rs#L129 and https://www.youtube.com/watch?v=ZweInbMBsa4
+    */
+    fn write_input_data<T>(input: &[T], channels: u16, writer: &ClipHandler)
+    where
+        T: cpal::Sample,
+    {
+        if let Ok(mut guard) = writer.try_lock() {
+            if let Some(clip) = guard.as_mut() {
+                for frame in input.chunks(channels.into()) {
+                    clip.samples.push(frame[0].to_f32());
+                }
+            }
+        }
+    }
+
+    let err_fn = move |err| {
+        eprintln!("an error occurred on stream: {}", err);
+    };
+
+    let stream = match supported_config.sample_format() {
+        cpal::SampleFormat::F32 => device.build_input_stream(
+            &supported_config.into(),
+            move |data, _: &_| write_input_data::<f32>(data, channels, &clip_2),
+            err_fn,
+        )?,
+        cpal::SampleFormat::I16 => device.build_input_stream(
+            &supported_config.into(),
+            move |data, _: &_| write_input_data::<i16>(data, channels, &clip_2),
+            err_fn,
+        )?,
+        cpal::SampleFormat::U16 => device.build_input_stream(
+            &supported_config.into(),
+            move |data, _: &_| write_input_data::<u16>(data, channels, &clip_2),
+            err_fn,
+        )?,
+    };
+    stream.play()?;
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    drop(stream);
+    let clip = clip.lock().unwrap().take().unwrap();
+
+    eprintln!("Recorded {} samples", clip.samples.len());
+    Ok(clip)
 }
