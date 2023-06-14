@@ -1,9 +1,11 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use eframe::egui;
+use realfft::RealFftPlanner;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 use std::{
     error::Error,
     f32::consts::PI,
+    fs,
     sync::{Arc, Mutex},
 };
 
@@ -265,7 +267,7 @@ fn draw_tune_by_recording(ctx: &egui::Context) {
                 sink.sleep_until_end();
             }
             if ui.button("A").clicked() {
-
+                generate_fourier_transform();
             }
             if ui.button("D").clicked() {
 
@@ -448,4 +450,62 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
 
     eprintln!("Recorded {} samples", clip.samples.len());
     Ok(clip)
+}
+
+// Sound Analysis ---------------------------------------------------------------------------------------------------------------
+
+/*
+   Purpose: This takes in a vector representing a signal waveform, performs a fourier transform and outputs the spectrogram
+   Notes: This section is based on the documents in https://docs.rs/realfft/3.3.0/realfft/
+*/
+fn generate_fourier_transform() {
+    // JUST FOR TESTING ------------
+    let sample_rate: u32 = 48000;
+    let duration: u32 = 1;
+    //Casts enum to f32
+    let frequency = Note::E2 as i16 as f32;
+
+    let mut source: Vec<f64> = vec![];
+
+    //Builds Note audio
+    for t in (0..(sample_rate * duration)).map(|x| x as f32 / sample_rate as f32) {
+        let sample = (t * frequency * 2.0 * PI).sin();
+        source.push(sample as f64);
+    }
+    // JUST FOR TESTING ------------
+
+    // make a planner
+    let mut real_planner = RealFftPlanner::<f64>::new();
+
+    // create a FFT
+    let r2c = real_planner.plan_fft_forward(source.len());
+
+    // make a vector for storing the spectrum
+    let mut spectrum = r2c.make_output_vec();
+
+    // forward transform the signal
+    r2c.process(&mut source, &mut spectrum).unwrap();
+
+    // create an inverse FFT
+    let c2r = real_planner.plan_fft_inverse(source.len());
+
+    // create a vector for storing the output
+    let mut outdata = c2r.make_output_vec();
+
+    // inverse transform the spectrum back to a real-valued signal
+    c2r.process(&mut spectrum, &mut outdata).unwrap();
+
+    let mut data: String = String::new();
+    for t in 0..outdata.len() {
+        outdata[t] = outdata[t] * (1.0 / outdata.len() as f64);
+        data += t.to_string().as_str();
+        data += " : ";
+        data += outdata[t].to_string().as_str();
+        data += "\n";
+        if t == 82 {
+            println!("{} : {}", t, outdata[t]);
+        }
+    }
+
+    fs::write("test.txt", data);
 }
