@@ -42,7 +42,8 @@ Additionally, the functionality of the "tune-by-recording" portion is inconsiste
 The project has been a great learning experience towards those goals. Although it is in a very protoype-like state, I am proud of its existence.
 The challenge was learning the concepts of both classes and applying them to the project. I would get stuck on as aspect of the code because I am still relatively new to Rust, then I would get stuck conceptually because of the difficult concepts in music theory.
 
-However, there is still much to be done in the future. One improvement is to make the "tunning by recording" have real-time processing rather than post recording.
+However, there is still much to be done in the future. One major flaw is that the "tune by recording" is very inconsistent, especially at pitches lower than 82 Hz.
+One improvement is to make the "tunning by recording" have real-time processing rather than post recording.
 Ultimately, the recording should be constant once the user decides that is what they would like to do, i.e. is in constant note interpreting mode.
 
 I would also like to implement a guitar tab/sheet music transcriber. It would listen in and generate a proper guitar tab file. The logical extention to that would be to have it be able to play that tablature as well.
