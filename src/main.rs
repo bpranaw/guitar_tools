@@ -6,11 +6,12 @@ use std::{
     cmp::Ordering,
     error::Error,
     f32::consts::PI,
-    fs,
     sync::{Arc, Mutex},
 };
 
 const SPACING: f32 = 10.0;
+const VOLUME_SCALER: f32 = 0.1;
+const HARMONIC_GUARD: usize = 20;
 
 // MAIN -------------------------------------------------------------------------------------------------------------------------
 fn main() -> Result<(), eframe::Error> {
@@ -35,8 +36,8 @@ impl Default for GuitarToolsApp {
     fn default() -> Self {
         Self {
             app_mode: AppModeOptions::Home,
-            volume: 1,
-            tuning_result: "Result".to_string(),
+            volume: 10,
+            tuning_result: "Result: N/A".to_string(),
         }
     }
 }
@@ -90,8 +91,11 @@ fn draw_home(ctx: &egui::Context) {
         ui.add_space(SPACING);
         ui.label("This application is meant to help you with guitar related tasks. Currently, it only has the capability to help with your guitar tuning.");
         ui.label("You may choose to \"Tune by ear\" or \"Tune by recording\". ");
-        ui.label("\"Tune by ear\" lets you choose your tuning and play specific pitches so you can tune your guitar strings accordingly by the sound.");
-        ui.label("\"Tune by recording\" lets you select your tuning and record your guitar strings making noise. The application will then tell you how close your string is to the proper pitch.");
+        ui.label("\"Tune by ear\" lets you play specific pitches so you can tune your guitar strings accordingly by the sound.");
+        ui.label("\"Tune by recording\" lets you record your guitar strings making noise. The application will then tell you how close your string is to the proper pitch.");
+        ui.label(
+            "Note: Try to use the \"Tune by ear\" feature to get your guitar string as close as possible to the proper pitch. Extreme variance will cause inconsistent behavior with the \"Tune by recording\" algorithm",
+        );
         ui.add_space(SPACING);
     });
 }
@@ -254,37 +258,136 @@ fn draw_tune_by_recording(ctx: &egui::Context, tuning_result: &mut String) {
         ui.label(
             "Your audio is recorded, and processed. After, the program will tell you how close you are to the proper pitch.",
         );
+        ui.label(
+            "Try to use the \"Tune by ear\" feature to get your guitar string as close as possible. Extreme variance will cause inconsistent behavior with the algorithm",
+        );
+        ui.label(
+            "Use this as more of a confirmation that you have tuned properly.",
+        );
+        ui.add_space(SPACING);
+        ui.label(tuning_result.as_str());
         ui.add_space(SPACING);
         //Standard Tuning -------------------------------------------------------------------------
         ui.label("Standard Tuning:");
         //This allows the buttons to be horizontally placed left to right
-        ui.label(tuning_result.as_str());
         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-            if ui.button("E").clicked() { 
-                let audio = obtain_audio().unwrap();
-                // To test the audo
-                let sample_rate: u32 = audio.sample_rate;
-                let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-                let source: SamplesBuffer<f32> = SamplesBuffer::new(1, sample_rate, audio.samples);
-                let sink = Sink::try_new(&stream_handle).unwrap();
-                sink.append(source);
-                sink.sleep_until_end();
+            if ui.button("E").clicked() {
+                *tuning_result = tune_by_recording(Note::E2);
             }
             if ui.button("A").clicked() {
-                let audio = obtain_audio().unwrap();
-                generate_fourier_transform(audio);
+                *tuning_result = tune_by_recording(Note::A2);
             }
             if ui.button("D").clicked() {
                 *tuning_result = tune_by_recording(Note::D3);
             }
             if ui.button("G").clicked() {
-
+                *tuning_result = tune_by_recording(Note::G3);
             }
             if ui.button("B").clicked() {
-
+                *tuning_result = tune_by_recording(Note::B3);
             }
             if ui.button("e").clicked() {
+                *tuning_result = tune_by_recording(Note::E4);
+            }
+        });
+        ui.add_space(SPACING);
 
+        //Half Step Down --------------------------------------------------------------------------
+        ui.label("Half Step Down Tuning:");
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("E_F").clicked() {
+                *tuning_result = tune_by_recording(Note::E2F);
+            }
+            if ui.button("A_F").clicked() {
+                *tuning_result = tune_by_recording(Note::A2F);
+            }
+            if ui.button("D_F").clicked() {
+                *tuning_result = tune_by_recording(Note::D3F);
+            }
+            if ui.button("G_F").clicked() {
+                *tuning_result = tune_by_recording(Note::G3F);
+            }
+            if ui.button("B_F").clicked() {
+                *tuning_result = tune_by_recording(Note::B3F);
+            }
+            if ui.button("e_F").clicked() {
+                *tuning_result = tune_by_recording(Note::E4F);
+            }
+        });
+        ui.add_space(SPACING);
+
+        //Full Step Down --------------------------------------------------------------------------
+        ui.label("Full Step Down Tuning:");
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("D").clicked() {
+                *tuning_result = tune_by_recording(Note::D2);
+            }
+            if ui.button("G").clicked() {
+                *tuning_result = tune_by_recording(Note::G2);
+            }
+            if ui.button("C").clicked() {
+                *tuning_result = tune_by_recording(Note::C3);
+            }
+            if ui.button("F").clicked() {
+                *tuning_result = tune_by_recording(Note::F3);
+            }
+            if ui.button("A").clicked() {
+                *tuning_result = tune_by_recording(Note::A3);
+            }
+            if ui.button("d").clicked() {
+                *tuning_result = tune_by_recording(Note::D4);
+            }
+        });
+        ui.add_space(SPACING);
+
+        //Drop D Tuning ---------------------------------------------------------------------------
+        ui.label("Drop D Tuning:");
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("D").clicked() {
+                *tuning_result = tune_by_recording(Note::D2);
+            }
+            if ui.button("A").clicked() {
+                *tuning_result = tune_by_recording(Note::A2);
+            }
+            if ui.button("d").clicked() {
+                *tuning_result = tune_by_recording(Note::D3);
+            }
+            if ui.button("G").clicked() {
+                *tuning_result = tune_by_recording(Note::G3);
+            }
+            if ui.button("B").clicked() {
+                *tuning_result = tune_by_recording(Note::B3);
+            }
+            if ui.button("E").clicked() {
+                *tuning_result = tune_by_recording(Note::E4);
+            }
+        });
+        ui.add_space(SPACING);
+
+        //Open E Tuning ---------------------------------------------------------------------------
+        ui.label("Open E Tuning:");
+        //This allows the buttons to be horizontally placed left to right
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.button("E").clicked() {
+                *tuning_result = tune_by_recording(Note::E2);
+            }
+            if ui.button("B").clicked() {
+                *tuning_result = tune_by_recording(Note::B2);
+            }
+            if ui.button("e").clicked() {
+                *tuning_result = tune_by_recording(Note::E3);
+            }
+            if ui.button("G_S").clicked() {
+                *tuning_result = tune_by_recording(Note::G3S);
+            }
+            if ui.button("b").clicked() {
+                *tuning_result = tune_by_recording(Note::B3);
+            }
+            if ui.button("e4").clicked() {
+                *tuning_result = tune_by_recording(Note::E4);
             }
         });
         ui.add_space(SPACING);
@@ -348,7 +451,7 @@ fn play_note(frequency: Note, volume: i32) {
     for t in (0..(sample_rate * duration)).map(|x| x as f32 / sample_rate as f32) {
         let sample = (t * frequency * 2.0 * PI).sin();
 
-        let wave = sample * volume as f32;
+        let wave = sample * volume as f32 * VOLUME_SCALER;
         source.push(wave);
     }
 
@@ -374,7 +477,6 @@ fn play_note(frequency: Note, volume: i32) {
 // This portion is based on the "cpal:recording" section of https://www.youtube.com/watch?v=ZweInbMBsa4
 struct AudioData {
     samples: Vec<f32>,
-    sample_rate: u32,
 }
 
 /*
@@ -402,7 +504,6 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
     // Making the structure that will store the recording
     let clip = AudioData {
         samples: Vec::new(),
-        sample_rate: supported_config.sample_rate().0,
     };
 
     let clip = Arc::new(Mutex::new(Some(clip)));
@@ -453,7 +554,6 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
     drop(stream);
     let clip = clip.lock().unwrap().take().unwrap();
 
-    eprintln!("Recorded {} samples", clip.samples.len());
     Ok(clip)
 }
 
@@ -489,17 +589,6 @@ fn generate_fourier_transform(audio: AudioData) -> Vec<f64> {
     for i in &spectrum {
         data.push(i.norm());
     }
-
-    //Just for testing ----------------------------------------------------------------------------
-    let mut data_string: String = String::new();
-    for t in 0..data.len() {
-        data_string += t.to_string().as_str();
-        data_string += " : ";
-        data_string += data[t].to_string().as_str();
-        data_string += "\n";
-    }
-    fs::write("test.txt", data_string);
-    //Just for testing ----------------------------------------------------------------------------
     data
 }
 
@@ -507,12 +596,22 @@ fn generate_fourier_transform(audio: AudioData) -> Vec<f64> {
 /*
    Purpose: Finds the greatest absolute value in the given vector and outputs the index for it
    Notes: In theory, the outputted index should be the most prominent frequency in the spectrogram
+          During testing, it seems that the second and third harmonics keep getting picked up. For example, a perfectly tuned E2 string (82 Hz) would pick up 164 Hz, 246 Hz etc.
+          My current solution to this is to limit where the greatest data is gathered, but that assumes that the string is already somewhere in the ballpark of the pitch...
+          That's why there's a target note in here.
 */
-fn find_greatest(data: Vec<f64>) -> usize {
+fn find_greatest(data: Vec<f64>, target_note: Note) -> usize {
     let mut index = 0;
     let mut greatest: f64 = 0.0;
 
+    // This is technically bad because in theory someone could pass a target note of 4 -> 4 * 2 < 10, but none of the notes are currently like that.
+    // Minimum is currently 82, so subtracting the harmonic_guard is not a problem
+    let target_range = target_note as usize * 2 - HARMONIC_GUARD;
+
     for (i, x) in data.iter().enumerate() {
+        if i >= target_range {
+            break;
+        }
         if x.abs() > greatest.abs() {
             greatest = data[i];
             index = i;
@@ -523,23 +622,23 @@ fn find_greatest(data: Vec<f64>) -> usize {
 
 /*
    Purpose: Records audio, runs it through a fourier transformation and determines the most prominent frequency. Then outputs a string telling the user whether they need to tune up or down
-   Notes: This will be sent to thh gui to update the internal result string.
+   Notes: This will be sent to the gui to update the internal result string.
 */
 fn tune_by_recording(note: Note) -> String {
     let mut result = String::new();
 
     let audio = obtain_audio().unwrap();
     let spectrogram = generate_fourier_transform(audio);
-    let index = find_greatest(spectrogram);
+    let index = find_greatest(spectrogram, note);
 
     let note = note as u32;
     let index = index as u32;
 
-    result += "Result: (Target Note: ";
+    result += "Result: (Target Pitch: ";
     result += note.to_string().as_str();
-    result += " Recorded Note: ";
+    result += " Hz Recorded Pitch: ";
     result += index.to_string().as_str();
-    result += " ): ";
+    result += " Hz): ";
 
     match note.cmp(&index) {
         Ordering::Less => result += "\"You shoud loosen your string!\"",
@@ -549,8 +648,3 @@ fn tune_by_recording(note: Note) -> String {
 
     result
 }
-
-/*
-   Purpose:
-   Notes:
-*/
