@@ -3,6 +3,7 @@ use eframe::egui;
 use realfft::RealFftPlanner;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 use std::{
+    cmp::Ordering,
     error::Error,
     f32::consts::PI,
     fs,
@@ -27,6 +28,7 @@ fn main() -> Result<(), eframe::Error> {
 struct GuitarToolsApp {
     app_mode: AppModeOptions,
     volume: i32,
+    tuning_result: String,
 }
 
 impl Default for GuitarToolsApp {
@@ -34,6 +36,7 @@ impl Default for GuitarToolsApp {
         Self {
             app_mode: AppModeOptions::Home,
             volume: 1,
+            tuning_result: "Result".to_string(),
         }
     }
 }
@@ -45,7 +48,7 @@ impl eframe::App for GuitarToolsApp {
         match self.app_mode {
             AppModeOptions::Home => draw_home(ctx),
             AppModeOptions::TuneByEar => draw_tune_by_ear(ctx, &mut self.volume),
-            AppModeOptions::TuneByRecording => draw_tune_by_recording(ctx),
+            AppModeOptions::TuneByRecording => draw_tune_by_recording(ctx, &mut self.tuning_result),
         }
     }
 }
@@ -242,7 +245,7 @@ fn draw_tune_by_ear(ctx: &egui::Context, volume: &mut i32) {
    Purpose:
    Notes:
 */
-fn draw_tune_by_recording(ctx: &egui::Context) {
+fn draw_tune_by_recording(ctx: &egui::Context, tuning_result: &mut String) {
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.heading("Instructions:");
         ui.label(
@@ -255,6 +258,7 @@ fn draw_tune_by_recording(ctx: &egui::Context) {
         //Standard Tuning -------------------------------------------------------------------------
         ui.label("Standard Tuning:");
         //This allows the buttons to be horizontally placed left to right
+        ui.label(tuning_result.as_str());
         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
             if ui.button("E").clicked() { 
                 let audio = obtain_audio().unwrap();
@@ -267,10 +271,11 @@ fn draw_tune_by_recording(ctx: &egui::Context) {
                 sink.sleep_until_end();
             }
             if ui.button("A").clicked() {
-                generate_fourier_transform();
+                let audio = obtain_audio().unwrap();
+                generate_fourier_transform(audio);
             }
             if ui.button("D").clicked() {
-
+                *tuning_result = tune_by_recording(Note::D3);
             }
             if ui.button("G").clicked() {
 
@@ -455,24 +460,15 @@ fn obtain_audio() -> Result<AudioData, Box<dyn Error>> {
 // Sound Analysis ---------------------------------------------------------------------------------------------------------------
 
 /*
-   Purpose: This takes in a vector representing a signal waveform, performs a fourier transform and outputs the spectrogram
+   Purpose: This takes in a vector representing a signal waveform, performs a fourier transform and outputs the spectrogram (real normalized not complex)
    Notes: This section is based on the documents in https://docs.rs/realfft/3.3.0/realfft/ and took inspiration from the source code at https://docs.rs/audioviz/latest/src/audioviz/fft.rs.html#55-62
 */
-fn generate_fourier_transform() {
-    // JUST FOR TESTING ------------
-    let sample_rate: u32 = 48000;
-    let duration: u32 = 1;
-    //Casts enum to f32
-    let frequency = Note::D4 as i16 as f32;
-
-    let mut source: Vec<f64> = vec![];
-
-    //Builds Note audio
-    for t in (0..(sample_rate * duration)).map(|x| x as f32 / sample_rate as f32) {
-        let sample = (t * frequency * 2.0 * PI).sin();
-        source.push(sample as f64);
+fn generate_fourier_transform(audio: AudioData) -> Vec<f64> {
+    // We need to converet the samples into f64
+    let mut source: Vec<f64> = Vec::new();
+    for i in &audio.samples {
+        source.push(*i as f64);
     }
-    // JUST FOR TESTING ------------
 
     // make a planner
     let mut real_planner = RealFftPlanner::<f64>::new();
@@ -489,10 +485,12 @@ fn generate_fourier_transform() {
     let mut data: Vec<f64> = Vec::new();
 
     //Normalizes complex to real
+    //Theoretically the index at our desired frequency should have the highest magnitude.
     for i in &spectrum {
         data.push(i.norm());
     }
 
+    //Just for testing ----------------------------------------------------------------------------
     let mut data_string: String = String::new();
     for t in 0..data.len() {
         data_string += t.to_string().as_str();
@@ -500,7 +498,59 @@ fn generate_fourier_transform() {
         data_string += data[t].to_string().as_str();
         data_string += "\n";
     }
-
-    println!("Frequency: {}", frequency);
     fs::write("test.txt", data_string);
+    //Just for testing ----------------------------------------------------------------------------
+    data
 }
+
+// Putting Note Call to Frequency output all together ---------------------------------------------------------------------------
+/*
+   Purpose: Finds the greatest absolute value in the given vector and outputs the index for it
+   Notes: In theory, the outputted index should be the most prominent frequency in the spectrogram
+*/
+fn find_greatest(data: Vec<f64>) -> usize {
+    let mut index = 0;
+    let mut greatest: f64 = 0.0;
+
+    for (i, x) in data.iter().enumerate() {
+        if x.abs() > greatest.abs() {
+            greatest = data[i];
+            index = i;
+        }
+    }
+    index
+}
+
+/*
+   Purpose: Records audio, runs it through a fourier transformation and determines the most prominent frequency. Then outputs a string telling the user whether they need to tune up or down
+   Notes: This will be sent to thh gui to update the internal result string.
+*/
+fn tune_by_recording(note: Note) -> String {
+    let mut result = String::new();
+
+    let audio = obtain_audio().unwrap();
+    let spectrogram = generate_fourier_transform(audio);
+    let index = find_greatest(spectrogram);
+
+    let note = note as u32;
+    let index = index as u32;
+
+    result += "Result: (Target Note: ";
+    result += note.to_string().as_str();
+    result += " Recorded Note: ";
+    result += index.to_string().as_str();
+    result += " ): ";
+
+    match note.cmp(&index) {
+        Ordering::Less => result += "\"You shoud loosen your string!\"",
+        Ordering::Greater => result += "\"You should tighen your string!\"",
+        Ordering::Equal => result += "\"Perfect!\"",
+    }
+
+    result
+}
+
+/*
+   Purpose:
+   Notes:
+*/
