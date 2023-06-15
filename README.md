@@ -27,7 +27,7 @@ sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev lib
 Unfornately, there are no unit tests or integration tests as of yet.
 The project was in a small enough scope, and with its music/sound nature, manual testing was the best fit.
 I did some manual testing along the way. Ex: validating that the proper pitches were being played, trying to break the interface, etc.
-There is definitely work to due in this regard.
+There is definitely work to do in this regard.
 
 # Progress and Future Work
 
